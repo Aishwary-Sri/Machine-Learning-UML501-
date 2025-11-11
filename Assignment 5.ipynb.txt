@@ -1,0 +1,263 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "code",
+      "execution_count": 4,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "bpdqmE0U1b1k",
+        "outputId": "a50c322d-db2f-4056-d89b-8d02d34e95b1"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Best Parameters: Learning Rate = 0.05 , Lambda = 1e-05\n",
+            "Best R² Score: 0.8708\n"
+          ]
+        }
+      ],
+      "source": [
+        "import numpy as np\n",
+        "import pandas as pd\n",
+        "from sklearn.metrics import r2_score\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "\n",
+        "np.random.seed(42)\n",
+        "n_samples, n_features = 500, 7\n",
+        "base_corr = 0.9\n",
+        "cov = np.full((n_features, n_features), base_corr)\n",
+        "np.fill_diagonal(cov, 1.0)\n",
+        "mean = np.zeros(n_features)\n",
+        "X = np.random.multivariate_normal(mean, cov, size=n_samples)\n",
+        "true_weights = np.array([2.5, -1.8, 1.2, 0.8, 0.5, 1.5, -0.7])\n",
+        "bias = 3.0\n",
+        "noise = np.random.normal(0, 1.5, size=n_samples)\n",
+        "y = X.dot(true_weights) + bias + noise\n",
+        "\n",
+        "scaler = StandardScaler()\n",
+        "X = scaler.fit_transform(X)\n",
+        "\n",
+        "def ridge_gradient_descent(X, y, lr, reg_lambda, n_iters=1000):\n",
+        "    m, n = X.shape\n",
+        "    X_b = np.c_[np.ones((m, 1)), X]\n",
+        "    theta = np.zeros((n + 1, 1))\n",
+        "    y = y.reshape(-1, 1)\n",
+        "    for _ in range(n_iters):\n",
+        "        gradients = (2/m) * X_b.T.dot(X_b.dot(theta) - y)\n",
+        "        gradients[1:] += 2 * reg_lambda * theta[1:]\n",
+        "        theta -= lr * gradients\n",
+        "        if np.isnan(theta).any() or np.isinf(theta).any():\n",
+        "            return None\n",
+        "    return theta\n",
+        "\n",
+        "learning_rates = [0.0001, 0.001, 0.01, 0.05]\n",
+        "lambdas = [1e-5, 1e-3, 0.01, 0.1, 1, 10]\n",
+        "\n",
+        "best_score, best_params = -np.inf, None\n",
+        "for lr in learning_rates:\n",
+        "    for l in lambdas:\n",
+        "        theta = ridge_gradient_descent(X, y, lr, l)\n",
+        "        if theta is None:\n",
+        "            continue\n",
+        "        y_pred = np.c_[np.ones((len(X), 1)), X].dot(theta)\n",
+        "        if np.isnan(y_pred).any():\n",
+        "            continue\n",
+        "        r2 = r2_score(y, y_pred)\n",
+        "        if r2 > best_score:\n",
+        "            best_score, best_params = r2, (lr, l)\n",
+        "\n",
+        "print(\"Best Parameters: Learning Rate =\", best_params[0], \", Lambda =\", best_params[1])\n",
+        "print(\"Best R² Score:\", round(best_score, 4))\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "from sklearn.linear_model import LinearRegression, Ridge, Lasso\n",
+        "from sklearn.metrics import mean_squared_error, r2_score\n",
+        "\n",
+        "df = pd.read_csv(\"Hitters.csv\")\n",
+        "df = df.dropna()\n",
+        "df = pd.get_dummies(df, drop_first=True)\n",
+        "\n",
+        "X = df.drop('Salary', axis=1)\n",
+        "y = df['Salary']\n",
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+        "\n",
+        "scaler = StandardScaler()\n",
+        "X_train = scaler.fit_transform(X_train)\n",
+        "X_test = scaler.transform(X_test)\n",
+        "\n",
+        "models = {\n",
+        "    'Linear': LinearRegression(),\n",
+        "    'Ridge': Ridge(alpha=0.5748, max_iter=10000),\n",
+        "    'Lasso': Lasso(alpha=0.5748, max_iter=10000)\n",
+        "}\n",
+        "\n",
+        "for name, model in models.items():\n",
+        "    model.fit(X_train, y_train)\n",
+        "    y_pred = model.predict(X_test)\n",
+        "    print(name, \"Regression:\")\n",
+        "    print(\"MSE:\", mean_squared_error(y_test, y_pred))\n",
+        "    print(\"R2 Score:\", r2_score(y_test, y_pred))\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "JFnMrNaP1pw4",
+        "outputId": "49b87d9e-35f1-4002-ea1c-4bdec28faac7"
+      },
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Linear Regression:\n",
+            "MSE: 128284.34549672354\n",
+            "R2 Score: 0.290745185579814\n",
+            "Ridge Regression:\n",
+            "MSE: 126603.90264424692\n",
+            "R2 Score: 0.30003596988293446\n",
+            "Lasso Regression:\n",
+            "MSE: 126678.11604014733\n",
+            "R2 Score: 0.29962566098567167\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.datasets import fetch_california_housing\n",
+        "from sklearn.linear_model import RidgeCV, LassoCV\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.metrics import r2_score\n",
+        "\n",
+        "data = fetch_california_housing()\n",
+        "X, y = data.data, data.target\n",
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+        "\n",
+        "scaler = StandardScaler()\n",
+        "X_train = scaler.fit_transform(X_train)\n",
+        "X_test = scaler.transform(X_test)\n",
+        "\n",
+        "ridge = RidgeCV(alphas=[0.1, 1, 10], cv=5)\n",
+        "lasso = LassoCV(alphas=[0.1, 1, 10], cv=5, max_iter=10000)\n",
+        "\n",
+        "ridge.fit(X_train, y_train)\n",
+        "lasso.fit(X_train, y_train)\n",
+        "\n",
+        "print(\"Ridge Best Alpha:\", ridge.alpha_)\n",
+        "print(\"Ridge R2:\", r2_score(y_test, ridge.predict(X_test)))\n",
+        "print(\"Lasso Best Alpha:\", lasso.alpha_)\n",
+        "print(\"Lasso R2:\", r2_score(y_test, lasso.predict(X_test)))\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "goF7YUip2N09",
+        "outputId": "eb0a7651-7df3-4dca-b66e-60fc838c5227"
+      },
+      "execution_count": 12,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Ridge Best Alpha: 0.1\n",
+            "Ridge R2: 0.5757905180002312\n",
+            "Lasso Best Alpha: 0.1\n",
+            "Lasso R2: 0.4813611325029077\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.datasets import load_iris\n",
+        "from sklearn.linear_model import LogisticRegression\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.metrics import accuracy_score, classification_report\n",
+        "\n",
+        "# Load data\n",
+        "iris = load_iris()\n",
+        "X, y = iris.data, iris.target\n",
+        "\n",
+        "# Train-test split\n",
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)\n",
+        "\n",
+        "# Train Logistic Regression (one-vs-rest)\n",
+        "model = LogisticRegression(multi_class='ovr', solver='lbfgs', max_iter=1000)\n",
+        "model.fit(X_train, y_train)\n",
+        "\n",
+        "# Evaluate\n",
+        "y_pred = model.predict(X_test)\n",
+        "print(\"Accuracy:\", accuracy_score(y_test, y_pred))\n",
+        "print(\"\\nClassification Report:\\n\", classification_report(y_test, y_pred))\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "fhJj77wq2d8U",
+        "outputId": "69d83a23-6bf9-4647-90bd-34d7ef9d0c6f"
+      },
+      "execution_count": 9,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Accuracy: 0.9555555555555556\n",
+            "\n",
+            "Classification Report:\n",
+            "               precision    recall  f1-score   support\n",
+            "\n",
+            "           0       1.00      1.00      1.00        19\n",
+            "           1       1.00      0.85      0.92        13\n",
+            "           2       0.87      1.00      0.93        13\n",
+            "\n",
+            "    accuracy                           0.96        45\n",
+            "   macro avg       0.96      0.95      0.95        45\n",
+            "weighted avg       0.96      0.96      0.96        45\n",
+            "\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/usr/local/lib/python3.12/dist-packages/sklearn/linear_model/_logistic.py:1256: FutureWarning: 'multi_class' was deprecated in version 1.5 and will be removed in 1.7. Use OneVsRestClassifier(LogisticRegression(..)) instead. Leave it to its default value to avoid this warning.\n",
+            "  warnings.warn(\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
