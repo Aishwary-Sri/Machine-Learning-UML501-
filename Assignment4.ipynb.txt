@@ -1,0 +1,506 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "41684710",
+   "metadata": {},
+   "source": [
+    "# Assignment 3(1)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e0f27469",
+   "metadata": {},
+   "source": [
+    "### Import libraries"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 65,
+   "id": "b681ae0e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from sklearn.preprocessing import StandardScaler,LabelEncoder\n",
+    "from sklearn.metrics import r2_score\n",
+    "from sklearn.model_selection import KFold,train_test_split\n",
+    "from sklearn.decomposition import PCA\n",
+    "from sklearn.linear_model import LinearRegression"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "07f51554",
+   "metadata": {},
+   "source": [
+    "### Q1."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 66,
+   "id": "a1db6080",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "      Avg. Area Income  Avg. Area House Age  Avg. Area Number of Rooms  \\\n",
+      "0          79545.45857             5.682861                   7.009188   \n",
+      "1          79248.64245             6.002900                   6.730821   \n",
+      "2          61287.06718             5.865890                   8.512727   \n",
+      "3          63345.24005             7.188236                   5.586729   \n",
+      "4          59982.19723             5.040555                   7.839388   \n",
+      "...                ...                  ...                        ...   \n",
+      "4995       60567.94414             7.830362                   6.137356   \n",
+      "4996       78491.27543             6.999135                   6.576763   \n",
+      "4997       63390.68689             7.250591                   4.805081   \n",
+      "4998       68001.33124             5.534388                   7.130144   \n",
+      "4999       65510.58180             5.992305                   6.792336   \n",
+      "\n",
+      "      Avg. Area Number of Bedrooms  Area Population         Price  \n",
+      "0                             4.09      23086.80050  1.059034e+06  \n",
+      "1                             3.09      40173.07217  1.505891e+06  \n",
+      "2                             5.13      36882.15940  1.058988e+06  \n",
+      "3                             3.26      34310.24283  1.260617e+06  \n",
+      "4                             4.23      26354.10947  6.309435e+05  \n",
+      "...                            ...              ...           ...  \n",
+      "4995                          3.46      22837.36103  1.060194e+06  \n",
+      "4996                          4.02      25616.11549  1.482618e+06  \n",
+      "4997                          2.13      33266.14549  1.030730e+06  \n",
+      "4998                          5.44      42625.62016  1.198657e+06  \n",
+      "4999                          4.07      46501.28380  1.298950e+06  \n",
+      "\n",
+      "[5000 rows x 6 columns]\n"
+     ]
+    }
+   ],
+   "source": [
+    "df_house = pd.read_csv(\"USA_Housing.csv\")\n",
+    "print(df_house)\n",
+    "X = df_house.drop(columns=[\"Price\"])\n",
+    "y = df_house[\"Price\"].values"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 67,
+   "id": "4b072dfb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X = pd.get_dummies(X,drop_first=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 68,
+   "id": "8e4ba69b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "scaler = StandardScaler()\n",
+    "X_scaled = scaler.fit_transform(X)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 69,
+   "id": "9f26f0ad",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def add_intercept(X):\n",
+    "    return np.hstack([np.ones((X.shape[0],1)),X])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "id": "e008d2b0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def closed_form_beta(X,y):\n",
+    "    return np.linalg.pinv(X.T @ X) @ (X.T @ y)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 71,
+   "id": "a31295c8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "kf = KFold(n_splits=5,shuffle=True,random_state=42)\n",
+    "fold_results = []"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 72,
+   "id": "95ae44d2",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Fold 1 → R2 Score: 0.9180\n",
+      "Fold 2 → R2 Score: 0.9146\n",
+      "Fold 3 → R2 Score: 0.9116\n",
+      "Fold 4 → R2 Score: 0.9193\n",
+      "Fold 5 → R2 Score: 0.9244\n"
+     ]
+    }
+   ],
+   "source": [
+    "for i, (train_idx,test_idx) in enumerate(kf.split(X_scaled), start=1):\n",
+    "    X_train, X_test = X_scaled[train_idx], X_scaled[test_idx]\n",
+    "    y_train, y_test = y[train_idx], y[test_idx]\n",
+    "\n",
+    "    beta = closed_form_beta(add_intercept(X_train), y_train)\n",
+    "    y_pred = add_intercept(X_test) @ beta\n",
+    "\n",
+    "    r2 = r2_score(y_test, y_pred)\n",
+    "    fold_results.append((i, r2))\n",
+    "\n",
+    "    print(f\"Fold {i} → R2 Score: {r2:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 73,
+   "id": "8cf9e8dc",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Best Fold: (5, 0.9243869413350316)\n"
+     ]
+    }
+   ],
+   "source": [
+    "best_fold = max(fold_results, key=lambda x: x[1])\n",
+    "print(\"Best Fold:\", best_fold)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bcc32b06",
+   "metadata": {},
+   "source": [
+    "### Q2."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 74,
+   "id": "b51a8807",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X_temp, X_test, y_temp, y_test = train_test_split(X_scaled, y, test_size=0.30, random_state=42)\n",
+    "X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.14, random_state=42)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 75,
+   "id": "684d48ed",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X_train_i, X_val_i, X_test_i = add_intercept(X_train), add_intercept(X_val), add_intercept(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 76,
+   "id": "588c3c6e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def gradient_descent(X, y, lr=0.01, n_iter=1000):\n",
+    "    n, d = X.shape\n",
+    "    beta = np.zeros(d)\n",
+    "    for _ in range(n_iter):\n",
+    "        error = X @ beta - y\n",
+    "        grad = (2/n) * (X.T @ error)\n",
+    "        beta -= lr * grad\n",
+    "    return beta"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 77,
+   "id": "5be2db77",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "LR=0.001 → Val R2=0.6983, Test R2=0.6474\n",
+      "LR=0.01 → Val R2=0.9106, Test R2=0.9147\n",
+      "LR=0.1 → Val R2=0.9106, Test R2=0.9147\n",
+      "LR=1 → Val R2=-inf, Test R2=-inf\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "C:\\ProgramData\\Anaconda3\\lib\\site-packages\\sklearn\\metrics\\_regression.py:805: RuntimeWarning: overflow encountered in square\n",
+      "  numerator = (weight * (y_true - y_pred) ** 2).sum(axis=0, dtype=np.float64)\n",
+      "C:\\ProgramData\\Anaconda3\\lib\\site-packages\\sklearn\\metrics\\_regression.py:805: RuntimeWarning: overflow encountered in square\n",
+      "  numerator = (weight * (y_true - y_pred) ** 2).sum(axis=0, dtype=np.float64)\n"
+     ]
+    }
+   ],
+   "source": [
+    "for lr in [0.001, 0.01, 0.1, 1]:\n",
+    "    beta = gradient_descent(X_train_i, y_train, lr=lr, n_iter=1000)\n",
+    "\n",
+    "    val_r2 = r2_score(y_val, X_val_i @ beta)\n",
+    "    test_r2 = r2_score(y_test, X_test_i @ beta)\n",
+    "\n",
+    "    print(f\"LR={lr} → Val R2={val_r2:.4f}, Test R2={test_r2:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c9a122c6",
+   "metadata": {},
+   "source": [
+    "### Q3."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 78,
+   "id": "421cef84",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import ssl\n",
+    "ssl._create_default_https_context = ssl._create_unverified_context\n",
+    "columns = [\"symboling\",\"normalized_losses\",\"make\",\"fuel_type\",\"aspiration\",\"num_doors\",\n",
+    "           \"body_style\",\"drive_wheels\",\"engine_location\",\"wheel_base\",\"length\",\"width\",\n",
+    "           \"height\",\"curb_weight\",\"engine_type\",\"num_cylinders\",\"engine_size\",\"fuel_system\",\n",
+    "           \"bore\",\"stroke\",\"compression_ratio\",\"horsepower\",\"peak_rpm\",\"city_mpg\",\n",
+    "           \"highway_mpg\",\"price\"]\n",
+    "df_auto = pd.read_csv(\n",
+    "    \"https://archive.ics.uci.edu/ml/machine-learning-databases/autos/imports-85.data\",\n",
+    "    header=None,\n",
+    "    names=columns,\n",
+    "    na_values=\"?\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 79,
+   "id": "25539622",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_auto[\"price\"] = pd.to_numeric(df_auto[\"price\"], errors=\"coerce\")\n",
+    "df_auto = df_auto.dropna(subset=[\"price\"])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "eb4416c6",
+   "metadata": {},
+   "source": [
+    "##### Preprocessing"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 80,
+   "id": "77d0c18b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "num_map = {\"one\":1,\"two\":2,\"three\":3,\"four\":4,\"five\":5,\n",
+    "           \"six\":6,\"seven\":7,\"eight\":8,\"nine\":9,\"ten\":10}\n",
+    "\n",
+    "df_auto[\"num_doors\"] = df_auto[\"num_doors\"].map(num_map)\n",
+    "df_auto[\"num_cylinders\"] = df_auto[\"num_cylinders\"].map(num_map)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 81,
+   "id": "dae2dbe7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_auto = pd.get_dummies(df_auto, columns=[\"body_style\",\"drive_wheels\"], drop_first=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 82,
+   "id": "7ddfb785",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "for col in [\"make\",\"aspiration\",\"engine_location\",\"fuel_type\"]:\n",
+    "    df_auto[col] = LabelEncoder().fit_transform(df_auto[col].astype(str))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 83,
+   "id": "5d4a78de",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_auto[\"fuel_system\"] = df_auto[\"fuel_system\"].astype(str).apply(lambda x: 1 if \"pfi\" in x else 0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 84,
+   "id": "c902f407",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_auto[\"engine_type\"] = df_auto[\"engine_type\"].astype(str).apply(lambda x: 1 if \"ohc\" in x else 0)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f9982b5b",
+   "metadata": {},
+   "source": [
+    "##### Linear Regression with and without PCA"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 85,
+   "id": "84adb044",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X = df_auto.drop(columns=[\"price\"])\n",
+    "y = df_auto[\"price\"].astype(float)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 86,
+   "id": "d5bc1695",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X = X.fillna(X.mean())"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 87,
+   "id": "d8912a75",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "scaler = StandardScaler()\n",
+    "X_scaled = scaler.fit_transform(X)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 88,
+   "id": "f3cf2f3a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 89,
+   "id": "88472439",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Baseline R2: 0.8721906380914359\n"
+     ]
+    }
+   ],
+   "source": [
+    "lr = LinearRegression()\n",
+    "lr.fit(X_train, y_train)\n",
+    "print(\"Baseline R2:\", r2_score(y_test, lr.predict(X_test)))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 90,
+   "id": "12ad9023",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "pca = PCA(n_components=0.95)\n",
+    "X_pca = pca.fit_transform(X_scaled)\n",
+    "Xp_train, Xp_test, yp_train, yp_test = train_test_split(X_pca, y, test_size=0.3, random_state=42)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 91,
+   "id": "3b34b3c6",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "PCA R2: 0.8757822928276745\n"
+     ]
+    }
+   ],
+   "source": [
+    "lr_pca = LinearRegression()\n",
+    "lr_pca.fit(Xp_train, yp_train)\n",
+    "print(\"PCA R2:\", r2_score(yp_test, lr_pca.predict(Xp_test)))"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.12"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
